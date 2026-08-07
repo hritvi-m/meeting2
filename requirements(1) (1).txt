@@ -1,0 +1,8 @@
+streamlit
+pandas
+python-dotenv
+fpdf2
+uharfbuzz
+google-generativeai
+langchain-google-genai
+langchain-core
