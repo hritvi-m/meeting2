@@ -1,8 +1,0 @@
-streamlit
-pandas
-python-dotenv
-fpdf2
-google-genai
-langchain-google-genai
-langchain-core
-uharfbuzz
