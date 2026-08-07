@@ -6,3 +6,6 @@ uharfbuzz
 google-generativeai
 langchain-google-genai
 langchain-core
+streamlit-webrtc
+av
+numpy
