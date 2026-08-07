@@ -403,57 +403,46 @@ def generate_mom_pdf(
     summary: str,
     action_items: list
 ) -> bytes:
-    """Generate a professional Minutes of Meeting PDF.
-
-    Supports:
-    - English
-    - Hindi / Devanagari
-    - Hinglish
-    - Automatic line wrapping
-    - Multiple pages
-    - Proper left/right margins
-    """
 
     pdf = FPDF("P", "mm", "A4")
 
-    # Page margins
     pdf.set_margins(18, 18, 18)
-
-    # Automatic page break
     pdf.set_auto_page_break(auto=True, margin=18)
 
-    # ---------------------------------------------------------
-    # FONT
-    # ---------------------------------------------------------
-    if UNICODE_FONT_AVAILABLE:
-        pdf.add_font(
-            "NotoSans",
-            "",
-            FONT_REGULAR
+    # --------------------------------------------------
+    # HINDI FONT
+    # --------------------------------------------------
+    if not UNICODE_FONT_AVAILABLE:
+        raise RuntimeError(
+            "Hindi font not found. Make sure the fonts folder "
+            "contains NotoSansDevanagari-Regular.ttf and "
+            "NotoSansDevanagari-Bold.ttf"
         )
-        pdf.add_font(
-            "NotoSans",
-            "B",
-            FONT_BOLD
-        )
-        font_name = "NotoSans"
-    else:
-        font_name = "Helvetica"
+
+    pdf.add_font(
+        "NotoDev",
+        "",
+        FONT_REGULAR
+    )
+
+    pdf.add_font(
+        "NotoDev",
+        "B",
+        FONT_BOLD
+    )
 
     pdf.add_page()
 
-    page_width = pdf.epw
+    # Available page width
+    w = pdf.epw
 
-    # ---------------------------------------------------------
+    # --------------------------------------------------
     # TITLE
-    # ---------------------------------------------------------
-    pdf.set_font(font_name, "B", 18)
+    # --------------------------------------------------
+    pdf.set_font("NotoDev", "B", 18)
 
-    # IMPORTANT:
-    # new_x="LMARGIN" makes sure the next line starts
-    # from the left margin instead of the right side.
     pdf.multi_cell(
-        page_width,
+        w,
         10,
         "MINUTES OF MEETING",
         align="C",
@@ -461,33 +450,36 @@ def generate_mom_pdf(
         new_y="NEXT"
     )
 
-    pdf.ln(4)
+    pdf.ln(5)
 
-    # ---------------------------------------------------------
-    # MEETING INFORMATION
-    # ---------------------------------------------------------
-    pdf.set_font(font_name, "B", 11)
+    # --------------------------------------------------
+    # MEETING TITLE
+    # --------------------------------------------------
+    pdf.set_font("NotoDev", "B", 11)
 
     pdf.multi_cell(
-        page_width,
+        w,
         7,
-        _sanitize_for_pdf("Meeting Title"),
+        "Meeting Title",
         new_x="LMARGIN",
         new_y="NEXT"
     )
 
-    pdf.set_font(font_name, "", 11)
+    pdf.set_font("NotoDev", "", 11)
 
     pdf.multi_cell(
-        page_width,
+        w,
         7,
         _sanitize_for_pdf(meeting_title),
         new_x="LMARGIN",
         new_y="NEXT"
     )
 
+    # --------------------------------------------------
+    # DATE
+    # --------------------------------------------------
     pdf.multi_cell(
-        page_width,
+        w,
         7,
         _sanitize_for_pdf(f"Date: {meeting_date}"),
         new_x="LMARGIN",
@@ -496,43 +488,48 @@ def generate_mom_pdf(
 
     pdf.ln(5)
 
-    # ---------------------------------------------------------
-    # SUMMARY HEADING
-    # ---------------------------------------------------------
-    pdf.set_font(font_name, "B", 14)
+    # --------------------------------------------------
+    # SUMMARY
+    # --------------------------------------------------
+    pdf.set_font("NotoDev", "B", 14)
 
     pdf.multi_cell(
-        page_width,
+        w,
         8,
-        _sanitize_for_pdf("Summary"),
+        "Summary",
         new_x="LMARGIN",
         new_y="NEXT"
     )
 
-    pdf.ln(1)
+    pdf.ln(2)
 
-    # ---------------------------------------------------------
-    # SUMMARY CONTENT
-    # ---------------------------------------------------------
-    pdf.set_font(font_name, "", 10.5)
+    pdf.set_font("NotoDev", "", 10.5)
 
+    # Clean Markdown
     clean_summary = _sanitize_for_pdf(summary)
 
-    # Split paragraphs so spacing is better
-    summary_paragraphs = clean_summary.split("\n")
+    for line in clean_summary.splitlines():
 
-    for paragraph in summary_paragraphs:
+        line = line.strip()
 
-        paragraph = paragraph.strip()
-
-        if not paragraph:
+        if not line:
             pdf.ln(2)
             continue
 
+        # Remove markdown heading symbols
+        line = re.sub(r"^#+\s*", "", line)
+
+        # Convert markdown bullets into clean bullets
+        if line.startswith("* "):
+            line = "• " + line[2:]
+
+        if line.startswith("- "):
+            line = "• " + line[2:]
+
         pdf.multi_cell(
-            page_width,
+            w,
             6.5,
-            paragraph,
+            line,
             align="L",
             new_x="LMARGIN",
             new_y="NEXT"
@@ -540,42 +537,39 @@ def generate_mom_pdf(
 
     pdf.ln(5)
 
-    # ---------------------------------------------------------
-    # ACTION ITEMS HEADING
-    # ---------------------------------------------------------
-    pdf.set_font(font_name, "B", 14)
+    # --------------------------------------------------
+    # ACTION ITEMS
+    # --------------------------------------------------
+    pdf.set_font("NotoDev", "B", 14)
 
     pdf.multi_cell(
-        page_width,
+        w,
         8,
-        _sanitize_for_pdf("Action Items"),
+        "Action Items",
         new_x="LMARGIN",
         new_y="NEXT"
     )
 
     pdf.ln(2)
 
-    # ---------------------------------------------------------
-    # ACTION ITEMS
-    # ---------------------------------------------------------
     if action_items:
 
-        for i, item in enumerate(action_items, 1):
+        for index, item in enumerate(action_items, start=1):
 
-            task = item.get("task", "").strip()
+            task = item.get("task", "")
             owner = item.get("owner", "Unassigned")
             deadline = item.get("deadline", "TBD")
             status = item.get("status", "Pending")
 
             # Task
-            pdf.set_font(font_name, "B", 10.5)
+            pdf.set_font("NotoDev", "B", 10.5)
 
             task_text = _sanitize_for_pdf(
-                f"{i}. {task}"
+                f"{index}. {task}"
             )
 
             pdf.multi_cell(
-                page_width,
+                w,
                 6.5,
                 task_text,
                 align="L",
@@ -583,17 +577,15 @@ def generate_mom_pdf(
                 new_y="NEXT"
             )
 
-            # Owner / deadline / status
-            pdf.set_font(font_name, "", 10)
+            # Details
+            pdf.set_font("NotoDev", "", 10)
 
             details = _sanitize_for_pdf(
-                f"Owner: {owner}    |    "
-                f"Due: {deadline}    |    "
-                f"Status: {status}"
+                f"Owner: {owner} | Due: {deadline} | Status: {status}"
             )
 
             pdf.multi_cell(
-                page_width,
+                w,
                 6,
                 details,
                 align="L",
@@ -605,22 +597,22 @@ def generate_mom_pdf(
 
     else:
 
-        pdf.set_font(font_name, "", 10.5)
+        pdf.set_font("NotoDev", "", 10.5)
 
         pdf.multi_cell(
-            page_width,
+            w,
             6.5,
             "No action items were identified.",
             new_x="LMARGIN",
             new_y="NEXT"
         )
 
-    # ---------------------------------------------------------
+    # --------------------------------------------------
     # FOOTER
-    # ---------------------------------------------------------
+    # --------------------------------------------------
     pdf.set_y(-15)
 
-    pdf.set_font(font_name, "", 8)
+    pdf.set_font("NotoDev", "", 8)
 
     pdf.cell(
         0,
@@ -629,12 +621,17 @@ def generate_mom_pdf(
         align="C"
     )
 
-    # ---------------------------------------------------------
-    # RETURN PDF
-    # ---------------------------------------------------------
     output = pdf.output(dest="S")
 
     return bytes(output)
+
+
+
+
+     
+         
+
+
  
 
 
