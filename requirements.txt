@@ -9,3 +9,4 @@ langchain-core
 streamlit-webrtc
 av
 numpy
+aiortc
