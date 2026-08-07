@@ -397,57 +397,247 @@ def _sanitize_for_pdf(text: str, max_token_len: int = 55) -> str:
     return text.encode("latin-1", "replace").decode("latin-1")
 
 
-def generate_mom_pdf(meeting_title: str, meeting_date: str, summary: str, action_items: list) -> bytes:
-    """Minutes of Meeting as a PDF.
+def generate_mom_pdf(
+    meeting_title: str,
+    meeting_date: str,
+    summary: str,
+    action_items: list
+) -> bytes:
+    """Generate a professional Minutes of Meeting PDF.
 
-    Uses the bundled Noto Sans Devanagari Unicode font when available, so
-    English, Hindi (Devanagari), and Hinglish content all render correctly.
-    If the font files aren't present under fonts/, falls back to the
-    built-in Latin-1 Helvetica (Devanagari text will show blank/missing
-    glyphs in that fallback case).
+    Supports:
+    - English
+    - Hindi / Devanagari
+    - Hinglish
+    - Automatic line wrapping
+    - Multiple pages
+    - Proper left/right margins
     """
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    w = pdf.epw  # effective page width (explicit, safer than w=0's auto-calc)
 
+    pdf = FPDF("P", "mm", "A4")
+
+    # Page margins
+    pdf.set_margins(18, 18, 18)
+
+    # Automatic page break
+    pdf.set_auto_page_break(auto=True, margin=18)
+
+    # ---------------------------------------------------------
+    # FONT
+    # ---------------------------------------------------------
     if UNICODE_FONT_AVAILABLE:
-        pdf.add_font("NotoSans", "", FONT_REGULAR)
-        pdf.add_font("NotoSans", "B", FONT_BOLD)
+        pdf.add_font(
+            "NotoSans",
+            "",
+            FONT_REGULAR
+        )
+        pdf.add_font(
+            "NotoSans",
+            "B",
+            FONT_BOLD
+        )
         font_name = "NotoSans"
     else:
         font_name = "Helvetica"
 
-    pdf.set_font(font_name, "B", 16)
-    pdf.multi_cell(w, 10, _sanitize_for_pdf("Minutes of Meeting"), align="C")
+    pdf.add_page()
+
+    page_width = pdf.epw
+
+    # ---------------------------------------------------------
+    # TITLE
+    # ---------------------------------------------------------
+    pdf.set_font(font_name, "B", 18)
+
+    # IMPORTANT:
+    # new_x="LMARGIN" makes sure the next line starts
+    # from the left margin instead of the right side.
+    pdf.multi_cell(
+        page_width,
+        10,
+        "MINUTES OF MEETING",
+        align="C",
+        new_x="LMARGIN",
+        new_y="NEXT"
+    )
+
+    pdf.ln(4)
+
+    # ---------------------------------------------------------
+    # MEETING INFORMATION
+    # ---------------------------------------------------------
+    pdf.set_font(font_name, "B", 11)
+
+    pdf.multi_cell(
+        page_width,
+        7,
+        _sanitize_for_pdf("Meeting Title"),
+        new_x="LMARGIN",
+        new_y="NEXT"
+    )
+
+    pdf.set_font(font_name, "", 11)
+
+    pdf.multi_cell(
+        page_width,
+        7,
+        _sanitize_for_pdf(meeting_title),
+        new_x="LMARGIN",
+        new_y="NEXT"
+    )
+
+    pdf.multi_cell(
+        page_width,
+        7,
+        _sanitize_for_pdf(f"Date: {meeting_date}"),
+        new_x="LMARGIN",
+        new_y="NEXT"
+    )
+
+    pdf.ln(5)
+
+    # ---------------------------------------------------------
+    # SUMMARY HEADING
+    # ---------------------------------------------------------
+    pdf.set_font(font_name, "B", 14)
+
+    pdf.multi_cell(
+        page_width,
+        8,
+        _sanitize_for_pdf("Summary"),
+        new_x="LMARGIN",
+        new_y="NEXT"
+    )
+
+    pdf.ln(1)
+
+    # ---------------------------------------------------------
+    # SUMMARY CONTENT
+    # ---------------------------------------------------------
+    pdf.set_font(font_name, "", 10.5)
+
+    clean_summary = _sanitize_for_pdf(summary)
+
+    # Split paragraphs so spacing is better
+    summary_paragraphs = clean_summary.split("\n")
+
+    for paragraph in summary_paragraphs:
+
+        paragraph = paragraph.strip()
+
+        if not paragraph:
+            pdf.ln(2)
+            continue
+
+        pdf.multi_cell(
+            page_width,
+            6.5,
+            paragraph,
+            align="L",
+            new_x="LMARGIN",
+            new_y="NEXT"
+        )
+
+    pdf.ln(5)
+
+    # ---------------------------------------------------------
+    # ACTION ITEMS HEADING
+    # ---------------------------------------------------------
+    pdf.set_font(font_name, "B", 14)
+
+    pdf.multi_cell(
+        page_width,
+        8,
+        _sanitize_for_pdf("Action Items"),
+        new_x="LMARGIN",
+        new_y="NEXT"
+    )
+
     pdf.ln(2)
 
-    pdf.set_font(font_name, "", 11)
-    pdf.multi_cell(w, 7, _sanitize_for_pdf(f"Meeting: {meeting_title}"))
-    pdf.multi_cell(w, 7, _sanitize_for_pdf(f"Date: {meeting_date}"))
-    pdf.ln(4)
-
-    pdf.set_font(font_name, "B", 13)
-    pdf.multi_cell(w, 8, _sanitize_for_pdf("Summary"))
-    pdf.set_font(font_name, "", 11)
-    pdf.multi_cell(w, 6, _sanitize_for_pdf(summary))
-    pdf.ln(4)
-
-    pdf.set_font(font_name, "B", 13)
-    pdf.multi_cell(w, 8, _sanitize_for_pdf("Action Items"))
-    pdf.set_font(font_name, "", 11)
+    # ---------------------------------------------------------
+    # ACTION ITEMS
+    # ---------------------------------------------------------
     if action_items:
-        for i, item in enumerate(action_items, 1):
-            line = (
-                f"{i}. {item.get('task', '')} | Owner: {item.get('owner', 'Unassigned')} | "
-                f"Due: {item.get('deadline', 'TBD')} | Status: {item.get('status', 'Pending')}"
-            )
-            pdf.multi_cell(w, 6, _sanitize_for_pdf(line))
-    else:
-        pdf.multi_cell(w, 6, _sanitize_for_pdf("No action items identified."))
 
+        for i, item in enumerate(action_items, 1):
+
+            task = item.get("task", "").strip()
+            owner = item.get("owner", "Unassigned")
+            deadline = item.get("deadline", "TBD")
+            status = item.get("status", "Pending")
+
+            # Task
+            pdf.set_font(font_name, "B", 10.5)
+
+            task_text = _sanitize_for_pdf(
+                f"{i}. {task}"
+            )
+
+            pdf.multi_cell(
+                page_width,
+                6.5,
+                task_text,
+                align="L",
+                new_x="LMARGIN",
+                new_y="NEXT"
+            )
+
+            # Owner / deadline / status
+            pdf.set_font(font_name, "", 10)
+
+            details = _sanitize_for_pdf(
+                f"Owner: {owner}    |    "
+                f"Due: {deadline}    |    "
+                f"Status: {status}"
+            )
+
+            pdf.multi_cell(
+                page_width,
+                6,
+                details,
+                align="L",
+                new_x="LMARGIN",
+                new_y="NEXT"
+            )
+
+            pdf.ln(3)
+
+    else:
+
+        pdf.set_font(font_name, "", 10.5)
+
+        pdf.multi_cell(
+            page_width,
+            6.5,
+            "No action items were identified.",
+            new_x="LMARGIN",
+            new_y="NEXT"
+        )
+
+    # ---------------------------------------------------------
+    # FOOTER
+    # ---------------------------------------------------------
+    pdf.set_y(-15)
+
+    pdf.set_font(font_name, "", 8)
+
+    pdf.cell(
+        0,
+        5,
+        "Generated by AI Meeting Assistant",
+        align="C"
+    )
+
+    # ---------------------------------------------------------
+    # RETURN PDF
+    # ---------------------------------------------------------
     output = pdf.output(dest="S")
+
     return bytes(output)
+ 
+
+
 
 
 def build_dashboard_dataframe(history: list) -> pd.DataFrame:
