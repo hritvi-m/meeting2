@@ -1,7 +1,7 @@
 streamlit>=1.37.0,<2.0.0
 langchain-google-genai>=1.0.10,<2.0.0
 langchain-core>=0.2.38,<0.4.0
-google-generativeai>=0.7.2,<1.0.0
+google-geneai>=0.7.2,<1.0.0
 python-dotenv>=1.0.1
 protobuf>=4.25.3,<5.0.0
 pandas>=2.0.0
