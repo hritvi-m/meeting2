@@ -98,7 +98,7 @@ model_choice = st.sidebar.selectbox(
 st.sidebar.markdown("---")
 st.sidebar.subheader("🌐 Language")
 output_language = st.sidebar.selectbox(
-    "Output language (summary, email, MoM, chat)",
+    "Output language (summary,chat)",
     ["English", "Hindi", "Hinglish"],
     index=0,
     help="Meeting audio can be spoken in Hindi/English/Hinglish regardless of this setting — "
